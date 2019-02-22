@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>欢迎注册</title>
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/mystyle.css">
+</head>
+<body>
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 col-md-offset-3">
+
+            <form novalidate autocomplete="off" action="/reg/" class="form-horizontal" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="{{ form_obj.username.id_for_label }}" class="col-sm-2 control-label">{{ form_obj.username.label }}</label>
+                    <div class="col-sm-8">
+                        {{ form_obj.username }}
+                        <span class="help-block">{{ form_obj.username.errors.0 }}</span>
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="{{ form_obj.password.id_for_label }}" class="col-sm-2 control-label">{{ form_obj.password.label }}</label>
+                    <div class="col-sm-8">
+                        {{ form_obj.password }}
+                        <span class="help-block">{{ form_obj.password.errors.0 }}</span>
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="{{ form_obj.re_password.id_for_label }}" class="col-sm-2 control-label">{{ form_obj.re_password.label }}</label>
+                    <div class="col-sm-8">
+                        {{ form_obj.re_password }}
+                        <span class="help-block">{{ form_obj.re_password.errors.0 }}</span>
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="{{ form_obj.email.id_for_label }}" class="col-sm-2 control-label">{{ form_obj.email.label }}</label>
+                    <div class="col-sm-8">
+                        {{ form_obj.email }}
+                        <span class="help-block">{{ form_obj.email.errors.0 }}</span>
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">头像</label>
+                    <div class="col-sm-8">
+                        <label for="id_avatar"><img src="/static/img/default.png" alt="默认头像" id="avatar-img"></label>
+                        <input type="file" name="avatar" id="id_avatar" style="display: none">
+                        <span class="help-block"></span>
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button type="button" class="btn btn-success" id="reg-submit">注册</button>
+                    </div>
+                 </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/static/jquery-3.3.1.js"></script>
+<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script>
+    $("#id_avatar").change(function () {
+        var fileReader = new FileReader();
+        fileReader.readAsDataURL(this.files[0]);
+        fileReader.onload = function(){
+           $("#avatar-img").attr("src",fileReader.result);
+        };
+    })
+
+    $("#reg-submit").click(function () {
+        var username = $("#id_username").val();
+        var password = $("#id_password").val();
+        var re_password = $("#id_re_password").val();
+        var email = $("#id_email").val();
+
+        $.ajax({
+            url: "/reg/",
+            type: "post",
+            data: {
+                username:username,
+                password:password,
+                re_password:re_password,
+                email:email,
+                csrfmiddlewaretoken:$("[name='csrfmiddlewaretoken']").val()
+            },
+            success:function (data) {
+                if (data.status){
+                    // 有错误就展示错误
+                    // console.log(data.msg);
+                    // 将报错信息填写到页面上
+                    $.each(data.msg, function (k,v) {
+                        // console.log("id_"+k, v[0]);
+                        // console.log($("#id_"+k));
+                        $("#id_"+k).next("span").text(v[0]).parent().parent().addClass("has-error");
+                    })
+
+                }else {
+                    // 没有错误就跳转到指定页面
+                    location.href = data.msg;
+                }
+            },
+        })
+    });
+
+    $("form input").focus(function () {
+        $(this).next().text("").parent().parent().removeClass("has-error");
+    })
+</script>
+</body>
+</html>
