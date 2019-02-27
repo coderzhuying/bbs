@@ -1,10 +1,13 @@
-from django.shortcuts import render,HttpResponse
+import os, json
+from bbs import settings
+from bs4 import BeautifulSoup
+from django.shortcuts import render, HttpResponse, redirect
 from django.http import JsonResponse
 from django.contrib import auth
 from geetest import GeetestLib
 from blog import forms, models
-# from django.db.models import Count
-# import logging
+from django.db.models import Count, F
+
 # Create your views here.
 
 
@@ -66,8 +69,14 @@ def get_geetest(request):
     return HttpResponse(response_str)
 
 
+def logout(request):
+    auth.logout(request=request)
+    return redirect("/login/")
+
+
 def index(request):
-    return render(request,'index.html')
+    article_list = models.Article.objects.all()
+    return render(request, 'index.html', context={"article_list": article_list})
 
 
 def register(request):
@@ -77,7 +86,8 @@ def register(request):
 
         if form_obj.is_valid():
             form_obj.cleaned_data.pop("re_password")
-            models.UserInfo.objects.create_user(**form_obj.cleaned_data)
+            avatar = request.FILES.get("avatar")
+            models.UserInfo.objects.create_user(**form_obj.cleaned_data, avatar=avatar)
             ret["msg"] = "/index/"
             return JsonResponse(ret)
 
@@ -89,4 +99,155 @@ def register(request):
     else:
         form_obj = forms.RegForm()
         return render(request, 'register.html', {'form_obj': form_obj})
+
+
+def check_username_exist(requst):
+    ret = {"status":0, "msg":""}
+    username = requst.GET.get("username")
+    is_exist = models.UserInfo.objects.filter(username=username)
+    if is_exist:
+        ret["status"] = 1
+        ret["msg"] = "用户名已存在!"
+    return JsonResponse(ret)
+
+
+def get_left_menu(username):
+    user = models.UserInfo.objects.filter(username=username).first()
+    blog = user.blog
+    category_list = models.Category.objects.filter(blog=blog).annotate(c=Count("article")).values("title", "c")
+    tag_list = models.Tag.objects.filter(blog=blog).annotate(c=Count("article")).values("title", "c")
+    # 按日期归档
+    archive_list = models.Article.objects.filter(user=user).extra(
+        select={"archive_ym": "date_format(create_time,'%%Y-%%m')"}
+    ).values("archive_ym").annotate(c=Count("nid")).values("archive_ym", "c")
+    return category_list, tag_list, archive_list
+
+
+def home(request, username):
+    user = models.UserInfo.objects.filter(username=username).first()
+    if not user:
+        return HttpResponse("404")
+    else:
+        blog = user.blog
+        article_list = models.Article.objects.filter(user=user)
+        return render(request, "home.html", {
+            "username": username,
+            "blog": blog,
+            "article_list": article_list,
+        })
+
+
+def article_detail(request, username, pk):
+    user = models.UserInfo.objects.filter(username=username).first()
+    if not user:
+        return HttpResponse("404")
+    blog = user.blog
+    # 找到当前的文章
+    article_obj = models.Article.objects.filter(pk=pk).first()
+
+    comment_list = models.Comment.objects.filter(article_id=pk)
+
+    return render(
+        request,
+        "article_detail.html",
+        {
+            "username": username,
+            "article": article_obj,
+            "blog": blog,
+            "comment_list":comment_list
+         }
+    )
+
+
+def up_down(request):
+    print(request.POST)
+    print("*"*50)
+    article_id = request.POST.get('article_id')
+    is_up = json.loads(request.POST.get('is_up'))
+    user = request.user
+    response = {"status": 1, "msg": ""}
+    print("is_up", is_up)
+    try:
+        models.ArticleUpDown.objects.create(user=user, article_id=article_id, is_up=is_up)
+        models.Article.objects.filter(pk=article_id).update(up_count=F("up_count")+1)
+
+    except Exception as e:
+        response["status"] = 0
+        response["msg"] = models.ArticleUpDown.objects.filter(user=user, article_id=article_id).first().is_up
+        print(response["msg"])
+    return JsonResponse(response)
+
+
+def comment(request):
+    print(request.POST)
+
+    pid = request.POST.get("pid")
+    article_id = request.POST.get("article_id")
+    content = request.POST.get("content")
+    user_pk = request.user.pk
+    print("*"*20)
+    print(article_id)
+    response = {}
+    if not pid:  #根评论
+        comment_obj = models.Comment.objects.create(article_id=article_id,user_id=user_pk,content=content)
+    else:
+        comment_obj = models.Comment.objects.create(article_id=article_id,user_id=user_pk,content=content,parent_comment_id=pid)
+
+    response["create_time"] = comment_obj.create_time.strftime("%Y-%m-%d")
+    response["content"] = comment_obj.content
+    response["username"] = comment_obj.user.username
+
+    return JsonResponse(response)
+
+
+def comment_tree(request, article_id):
+    ret = list(models.Comment.objects.filter(article_id=article_id).values("pk", "content", "parent_comment_id"))
+    print(ret)
+    return JsonResponse(ret, safe=False)
+
+
+def add_article(request):
+
+    if request.method == "POST":
+        title = request.POST.get('title')
+        article_content = request.POST.get('article_content')
+        user = request.user
+
+        bs = BeautifulSoup(article_content,"html.parser")
+
+        # 过滤非法标签
+        for tag in bs.find_all():
+            print(tag.name)
+
+            if tag.name in ["script", "link"]:
+                tag.decompose()
+
+        desc = bs.text[0:150] + "..."
+
+        article_obj = models.Article.objects.create(user=user, title=title, desc=desc)
+        models.ArticleDetail.objects.create(content=str(bs), article=article_obj)
+
+        return HttpResponse("添加成功")
+
+    return render(request, "add_article.html")
+
+
+def upload(request):
+    print(request.FILES)
+    obj = request.FILES.get("upload_img")
+
+    print("name", obj.name)
+
+    path = os.path.join(settings.MEDIA_ROOT, "add_article_img", obj.name)
+
+    with open(path, "wb") as f:
+        for line in obj:
+            f.write(line)
+
+    res = {
+        "error": 0,
+        "url": "/media/add_article_img/"+obj.name
+    }
+
+    return HttpResponse(json.dumps(res))
 

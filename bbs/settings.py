@@ -127,5 +127,8 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static")
 ]
 
+MEDIA_ROOT = os.path.join(BASE_DIR,"media")
+MEDIA_URL = "/media/"
+
 # 告诉Django项目用哪张表做认证
 AUTH_USER_MODEL = 'blog.UserInfo'

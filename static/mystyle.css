@@ -96,3 +96,20 @@
 .clear {
     clear: both;
 }
+
+input.author{
+    background-image: url("/static/img/icon_form.gif");
+    background-repeat: no-repeat;
+    border: 1px solid #ccc;
+    padding: 4px 4px 4px 30px;
+    width: 300px;
+    font-size: 13px;
+}
+
+.list-group-item .con{
+    margin-top: 10px;
+}
+
+.comment_tree .comment_item{
+    margin-left: 20px;
+}

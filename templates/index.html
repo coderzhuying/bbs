@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>index</title>
+    <title> </title>
     <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/fontawesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="/static/mystyle.css">
@@ -40,7 +40,7 @@
                             <li><a href="#">Another action</a></li>
                             <li><a href="#">Something else here</a></li>
                             <li role="separator" class="divider"></li>
-                            <li><a href="/logout/">注销</a></li>
+                            <li><a href="/logout/">退出登录</a></li>
                         </ul>
                     </li>
                 {% else %}
@@ -74,11 +74,11 @@
             <div class="article-list">
                 {% for article in article_list %}
                     <div class="article">
-                        <h3><a href="">{{ article.title }}</a></h3>
+                        <h3><a href="/blog/{{ article.user.username }}/article/{{ article.nid }}">{{ article.title }}</a></h3>
                         <div class="media">
                             <div class="media-left">
                                 <a href="#">
-                                    <img class="media-object author-img" src="/media/{{ article.user.avatar }}" alt="...">
+                                    <img class="media-object author-img" src="/media/{{ article.user.avatar }}" alt="作者头像">
                                 </a>
                             </div>
                             <div class="media-body">

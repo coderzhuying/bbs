@@ -4,6 +4,7 @@ bbs用到的form类
 
 from django import forms
 from django.core.exceptions import ValidationError
+from blog import models
 
 
 # 定义一个form类
@@ -56,8 +57,17 @@ class RegForm(forms.Form):
         re_password = self.cleaned_data.get("re_password")
 
         if re_password and re_password != password:
-            self.add_error("re_password", ValidationError("两次密码不一致"))
+            self.add_error("re_password", ValidationError("两次密码不一致!"))
 
         else:
             return self.cleaned_data
+
+    # 重写局部的钩子函数，用户名对做校验
+    def clean_username(self):
+        username = self.cleaned_data.get("username")
+        is_exist = models.UserInfo.objects.filter(username=username)
+        if is_exist:
+            self.add_error("username", ValidationError("用户名已存在!"))
+        else:
+            return username
 
